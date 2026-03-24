@@ -7,9 +7,6 @@
   },
   "type": "module",
   "main": "dist/server.js",
-  "overrides": {
-    "undici": "~5.28.0"
-  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
