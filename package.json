@@ -2,6 +2,9 @@
   "name": "tsc-stories-mcp",
   "version": "1.0.0",
   "description": "MCP server for TSC Stories",
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "main": "dist/server.js",
   "overrides": {
