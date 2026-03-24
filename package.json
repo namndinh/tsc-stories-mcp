@@ -4,8 +4,8 @@
   "description": "MCP server for TSC Stories",
   "type": "module",
   "main": "dist/server.js",
-  "engines": {
-    "node": ">=20"
+  "overrides": {
+    "undici": "~5.28.0"
   },
   "scripts": {
     "build": "tsc",
