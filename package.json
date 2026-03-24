@@ -4,6 +4,9 @@
   "description": "MCP server for TSC Stories",
   "type": "module",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
