@@ -2,7 +2,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { load } from "cheerio";
-import express, { Request, Response } from "express";
+import express from "express";
+import type { Request, Response } from "express";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -97,44 +98,48 @@ const FALLBACK_STORIES: Story[] = [
   { title: "Combatting rhino poaching", slug: "combatting-rhino-poaching", url: `${BASE_URL}/stories/combatting-rhino-poaching`, date: "April 20, 2023" },
 ];
 
-// ─── MCP Server ───────────────────────────────────────────────────────────────
+// ─── MCP Server factory ───────────────────────────────────────────────────────
 
-const server = new McpServer({ name: "tsc-customer-stories", version: "1.0.0" });
+function createServer(): McpServer {
+  const server = new McpServer({ name: "tsc-customer-stories", version: "1.0.0" });
 
-server.tool("list_stories", "List all TSC customer stories. Optionally filter by a keyword in the title.",
-  { keyword: z.string().optional().describe("Optional keyword to filter by title") },
-  async ({ keyword }) => {
-    const stories = await fetchStoryList();
-    const filtered = keyword ? stories.filter((s) => s.title.toLowerCase().includes(keyword.toLowerCase())) : stories;
-    const text = filtered.length
-      ? `Found ${filtered.length} stories:\n\n` + filtered.map((s, i) => `${i + 1}. **${s.title}**\n   Date: ${s.date}\n   Slug: ${s.slug}\n   URL: ${s.url}`).join("\n\n")
-      : `No stories found matching "${keyword}".`;
-    return { content: [{ type: "text", text }] };
-  }
-);
+  server.tool("list_stories", "List all TSC customer stories. Optionally filter by a keyword in the title.",
+    { keyword: z.string().optional().describe("Optional keyword to filter by title") },
+    async ({ keyword }) => {
+      const stories = await fetchStoryList();
+      const filtered = keyword ? stories.filter((s) => s.title.toLowerCase().includes(keyword.toLowerCase())) : stories;
+      const text = filtered.length
+        ? `Found ${filtered.length} stories:\n\n` + filtered.map((s, i) => `${i + 1}. **${s.title}**\n   Date: ${s.date}\n   Slug: ${s.slug}\n   URL: ${s.url}`).join("\n\n")
+        : `No stories found matching "${keyword}".`;
+      return { content: [{ type: "text", text }] };
+    }
+  );
 
-server.tool("get_story", "Fetch the full content of a TSC customer story by its slug.",
-  { slug: z.string().describe("Story slug, e.g. 'learning-from-the-vw-scandal'") },
-  async ({ slug }) => {
-    const story = await fetchStoryContent(slug);
-    return { content: [{ type: "text", text: [`# ${story.title}`, `**Date:** ${story.date}  |  **URL:** ${story.url}`, ``, `## Summary`, story.summary, ``, `## Full Content`, story.body || "(Could not extract — visit URL directly.)"].join("\n") }] };
-  }
-);
+  server.tool("get_story", "Fetch the full content of a TSC customer story by its slug.",
+    { slug: z.string().describe("Story slug, e.g. 'learning-from-the-vw-scandal'") },
+    async ({ slug }) => {
+      const story = await fetchStoryContent(slug);
+      return { content: [{ type: "text", text: [`# ${story.title}`, `**Date:** ${story.date}  |  **URL:** ${story.url}`, ``, `## Summary`, story.summary, ``, `## Full Content`, story.body || "(Could not extract — visit URL directly.)"].join("\n") }] };
+    }
+  );
 
-server.tool("search_stories", "Search TSC customer stories by industry sector or topic (e.g. 'mining', 'utility', 'security', 'oil').",
-  { query: z.string().describe("Topic or sector to search for") },
-  async ({ query }) => {
-    const stories = await fetchStoryList();
-    const q = query.toLowerCase();
-    const scored = stories
-      .map((s) => ({ story: s, score: q.split(/\s+/).filter((w) => s.title.toLowerCase().includes(w)).length }))
-      .filter((r) => r.score > 0).sort((a, b) => b.score - a.score);
-    const text = scored.length
-      ? `Found ${scored.length} stories for "${query}":\n\n` + scored.map((r, i) => `${i + 1}. **${r.story.title}** (${r.story.date})\n   Slug: ${r.story.slug}`).join("\n\n")
-      : `No stories matched "${query}". Try: mining, oil, utility, energy, security, agriculture, plastic.`;
-    return { content: [{ type: "text", text }] };
-  }
-);
+  server.tool("search_stories", "Search TSC customer stories by industry sector or topic (e.g. 'mining', 'utility', 'security', 'oil').",
+    { query: z.string().describe("Topic or sector to search for") },
+    async ({ query }) => {
+      const stories = await fetchStoryList();
+      const q = query.toLowerCase();
+      const scored = stories
+        .map((s) => ({ story: s, score: q.split(/\s+/).filter((w) => s.title.toLowerCase().includes(w)).length }))
+        .filter((r) => r.score > 0).sort((a, b) => b.score - a.score);
+      const text = scored.length
+        ? `Found ${scored.length} stories for "${query}":\n\n` + scored.map((r, i) => `${i + 1}. **${r.story.title}** (${r.story.date})\n   Slug: ${r.story.slug}`).join("\n\n")
+        : `No stories matched "${query}". Try: mining, oil, utility, energy, security, agriculture, plastic.`;
+      return { content: [{ type: "text", text }] };
+    }
+  );
+
+  return server;
+}
 
 // ─── HTTP Server ──────────────────────────────────────────────────────────────
 
@@ -151,6 +156,7 @@ async function main() {
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined, // stateless — fine for single-user demos
     });
+    const server = createServer();
     await server.connect(transport);
     await transport.handleRequest(req, res, req.body);
   });
