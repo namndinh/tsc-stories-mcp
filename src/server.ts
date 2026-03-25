@@ -168,10 +168,13 @@ async function main() {
       sessionIdGenerator: () => randomUUID(),
     });
     const server = createServer();
-    transport.onclose = () => sessions.delete(transport.sessionId!);
     await server.connect(transport);
-    if (transport.sessionId) sessions.set(transport.sessionId, { transport, server });
     await transport.handleRequest(req, res, req.body);
+    // sessionId is populated only after handleRequest processes the initialize message
+    if (transport.sessionId) {
+      sessions.set(transport.sessionId, { transport, server });
+      transport.onclose = () => sessions.delete(transport.sessionId!);
+    }
   });
 
   // SSE stream for existing session
